@@ -1,0 +1,10 @@
+name: springbok
+description: Springbok for Dart Library
+dependencies:
+  unittest: any
+#  compiler: '>= 0.1.2'
+  compiler:
+    path: ../../springbok/compiler/
+  springbok_router:
+    path: ../../springbok/springbok_router.dart/
+  http_server: any
