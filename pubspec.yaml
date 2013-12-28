@@ -6,5 +6,5 @@ dependencies:
   compiler:
     path: ../../springbok/compiler/
   springbok_router:
-    path: ../../springbok/springbok_router.dart/
+    path: ../../springbok/springbok_router/
   http_server: any

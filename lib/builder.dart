@@ -1,7 +1,9 @@
-import 'package:compiler/compiler.dart';
-import 'package:compiler/builder.dart' as CompilerBuilder;
+library springbok_builder;
+
 import 'package:springbok/compiler.dart';
+import 'package:compiler/builder.dart' as CompilerBuilder;
+
 
 build(List<String> args){
-  CompilerBuilder.build(args, (Compiler compiler) => new SpringbokFileList(compiler));
+  CompilerBuilder.build(args);
 }

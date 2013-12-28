@@ -1,80 +1,113 @@
 library springbok_server;
 
-import 'dart:io';
+import 'dart:io' hide File, HttpRequest, HttpResponse;
+export 'dart:io' hide File, HttpRequest, HttpResponse;
+import 'dart:io' as IoHttp show HttpRequest, HttpResponse;
+import 'package:compiler/file.dart';
+export 'package:compiler/file.dart';
+
 import 'dart:async';
+export 'dart:async';
+import 'dart:convert';
+export 'dart:convert';
+import 'dart:collection';
+export 'dart:collection';
+
 import 'package:path/path.dart' as Path;
+
 import 'package:springbok_router/router.dart';
+
 import 'package:http_server/http_server.dart';
+import 'package:mime/mime.dart';
+
 import 'package:yaml/yaml.dart';
+export 'package:yaml/yaml.dart';
+
+import 'package:crypto/crypto.dart';
+export 'package:crypto/crypto.dart';
 
 part './server/action.dart';
+part './server/http_request.dart';
+part './server/http_response.dart';
+part './server/cookies.dart';
 
-// TODO : status, message, details, responses html/json/xml...
-Future _sendStatus(HttpResponse response, { int status: HttpStatus.NOT_FOUND, String message: 'Not Found' }){
-  response.statusCode = status;
-  if (message != null) response.write(message);
-  return response.close();
+String sha256(String data) {
+  var sha = new SHA256();
+  sha.add(data.codeUnits);
+  var messageDigest = sha.close();
+  return CryptoUtils.bytesToBase64(messageDigest);
 }
 
-start(Map<String, Map<String, Action>> controllers, final HOST, final PORT){
-  assert(controllers != null && controllers.isNotEmpty);
-  
+final String BASE_PATH = (){
   String current = Directory.current.path;
-  if(current.endsWith('/bin')) current = current.substring(0, current.length-4);
-  final basePath = current;
-  final configPath = '$current/config';
-  
-  final Map config = loadYaml(new File('$configPath/config.yaml').readAsStringSync());
-  
-  assert(config.isNotEmpty);
-  assert(config['allLangs'] is List && config['allLangs'].isNotEmpty);
+  if(current.endsWith(Path.separator + 'bin')) current = current.substring(0, current.length-4);
+  return current;
+}();
+
+
+final CONFIG_PATH = '$BASE_PATH/config';
+
+final Map CONFIG = loadYaml(new File('$CONFIG_PATH/config.yaml').readAsStringSync());
+
+
+start(Map<String, Map<String, Action>> controllers, final HOST, final PORT){
+  assert(CONFIG.isNotEmpty);
+  assert(CONFIG['allLangs'] is List && CONFIG['allLangs'].isNotEmpty);
+
+  assert(controllers != null && controllers.isNotEmpty);
   
   // Init
   final RoutesTranslations routesTranslations = new RoutesTranslations(
-      loadYaml(new File('$configPath/routesTranslations.yaml').readAsStringSync()));
+      loadYaml(new File('$CONFIG_PATH/routesTranslations.yaml').readAsStringSync()));
   final Router router = new Router(routesTranslations,
-      loadYaml(new File('$configPath/routes.yaml').readAsStringSync()),
-      config['allLangs']);
+      loadYaml(new File('$CONFIG_PATH/routes.yaml').readAsStringSync()),
+      CONFIG['allLangs']);
+  
+  final urlPathBuilder = new Path.Builder(style: Path.Style.url);
   
   
   // Start
   HttpServer.bind(HOST, PORT).then((HttpServer server) {
-    server.listen((HttpRequest request) {
-      final String path = Path.normalize(request.uri.path);
-      print("${request.method} $path");
+    server.listen((IoHttp.HttpRequest _request) {
+      final String path = urlPathBuilder.normalize(_request.uri.path);
+      print("${_request.method} $path");
       
-      if (!Path.isAbsolute(path)){
-        print('!absolute :-( $path');
-        return _sendStatus(request.response);
-      }
       if (path == "/favicon.ico") {
-        assert(new File('${basePath}/web${path}').existsSync());
-        new File('${basePath}${path}').openRead().pipe(request.response).catchError((e){});
+        assert(new File('${BASE_PATH}/web${path}').existsSync());
+        new File('${BASE_PATH}${path}').openRead().pipe(_request.response).catchError((e){});
       } else if(path.startsWith('/web/')) {
-        final File file = new File('${basePath}${path}');
-        print('=> ${basePath}${path}');
+        final File file = new File('${BASE_PATH}${path}');
+        //print('=> ${basePath}${path}');
         file.exists().then((bool found){
           if (!found) {
-            return _sendStatus(request.response, message: 'File not found: ${path}');
+            var response = _request.response;
+            response.statusCode = HttpStatus.NOT_FOUND;
+            response.headers.add(HttpHeaders.CONTENT_TYPE, 'text/plain');
+            response.write('File not found: ${path}');
+            return response.close();
           }
-          file.openRead().pipe(request.response).catchError((e){});
+          file.openRead().pipe(_request.response).catchError((e){});
         });
       } else {
+        HttpRequest request = new HttpRequest.fromIoHttpRequest(_request);
+        
         try {
           Route route = router.find(path);
           
           Map<String, Action> actions = controllers[route.controller];
           if (actions == null) {
-            return _sendStatus(request.response);
+            return request.response.sendSimpleResponse();
           }
           
           Action action = actions[route.action];
           if (action == null) {
-            return _sendStatus(request.response);
+            return request.response.sendSimpleResponse();
           }
           action.apply(request, request.response);
         } catch(e,stack) {
-          return _sendStatus(request.response, status: HttpStatus.INTERNAL_SERVER_ERROR,
+          print(e);
+          print(stack);
+          return request.response.sendSimpleResponse(status: HttpStatus.INTERNAL_SERVER_ERROR,
               message: 'Internal Server Error\n${e.toString()}\n${stack.toString()}');
         }
       }
