@@ -80,11 +80,11 @@ start(Map<String, Map<String, Action>> controllers, final HOST, final PORT){
         //print('=> ${basePath}${path}');
         file.exists().then((bool found){
           if (!found) {
-            var response = _request.response;
-            response.statusCode = HttpStatus.NOT_FOUND;
-            response.headers.add(HttpHeaders.CONTENT_TYPE, 'text/plain');
-            response.write('File not found: ${path}');
-            return response.close();
+            return _request.response
+                ..statusCode = HttpStatus.NOT_FOUND
+                ..headers.add(HttpHeaders.CONTENT_TYPE, 'text/plain')
+                ..write('File not found: ${path}')
+                ..close();
           }
           file.openRead().pipe(_request.response).catchError((e){});
         });
@@ -96,15 +96,15 @@ start(Map<String, Map<String, Action>> controllers, final HOST, final PORT){
           
           Map<String, Action> actions = controllers[route.controller];
           if (actions == null) {
-            return request.response.sendSimpleResponse();
+            return request.response.sendSimpleResponse(message: 'Controller ${route.controller} not found');
           }
           
           Action action = actions[route.action];
           if (action == null) {
-            return request.response.sendSimpleResponse();
+            return request.response.sendSimpleResponse(message: 'Action ${route.action} not found');
           }
           action.apply(request, request.response);
-        } catch(e,stack) {
+        } catch (e, stack) {
           print(e);
           print(stack);
           return request.response.sendSimpleResponse(status: HttpStatus.INTERNAL_SERVER_ERROR,
