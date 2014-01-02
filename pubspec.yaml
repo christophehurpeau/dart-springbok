@@ -2,7 +2,7 @@ name: springbok
 description: Springbok for Dart Library
 dependencies:
   unittest: any
-  compiler: '>= 0.2.4'
+  compiler: '>= 0.2.5'
 #  compiler:
 #    path: ../../springbok/compiler/
   springbok_router:
