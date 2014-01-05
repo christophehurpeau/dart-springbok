@@ -6,6 +6,7 @@ class HttpRequest implements IoHttp.HttpRequest {
   @override
   final HttpResponse response;
   
+  Route route;
   
   HttpRequest.fromIoHttpRequest(IoHttp.HttpRequest request)
       : this._httpRequest = request,

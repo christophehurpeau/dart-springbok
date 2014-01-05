@@ -93,6 +93,7 @@ start(Map<String, Map<String, Action>> controllers, final HOST, final PORT){
         
         try {
           Route route = router.find(path);
+          request.route = route; 
           
           Map<String, Action> actions = controllers[route.controller];
           if (actions == null) {
